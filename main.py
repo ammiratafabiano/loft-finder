@@ -1,17 +1,16 @@
 import asyncio
 import random
 import time
-import traceback
 from datetime import datetime
 
 import telegram
 from telegram import MessageEntity, InlineKeyboardButton, InlineKeyboardMarkup
 import logging
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, \
-    PicklePersistence
+from telegram.ext import CommandHandler, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, \
+    PicklePersistence, ApplicationBuilder
 from concurrent.futures import ProcessPoolExecutor
 
-from costants import ADMIN_ID, BOT_TOKEN, AdvType
+from costants import ADMIN_ID, BOT_TOKEN
 from conversationid import *
 from services.storage import storage
 from models.user import User
@@ -26,9 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 def bot_handler():
-    persistence = PicklePersistence(filename='conversationbot')
-    updater = Updater(BOT_TOKEN, persistence=persistence)
-    dispatcher = updater.dispatcher
+    persistence = PicklePersistence(filepath='conversationbot')
+    app = ApplicationBuilder().token(BOT_TOKEN).persistence(persistence).build()
 
     conv_addwatch_handler = ConversationHandler(
         entry_points=[CommandHandler("addwatch", addwatch)],
@@ -39,59 +37,59 @@ def bot_handler():
             ],
             ASK_CITY: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_city)
+                MessageHandler(filters.ALL, store_city)
 
             ],
             ASK_TYPE: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_type)
+                MessageHandler(filters.ALL, store_type)
             ],
             ASK_CATEGORY: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_category)
+                MessageHandler(filters.ALL, store_category)
             ],
             ASK_AGENCY: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_agency)
+                MessageHandler(filters.ALL, store_agency)
             ],
             ASK_MIN_PRIZE: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_min_prize),
+                MessageHandler(filters.ALL, store_min_prize),
                 CallbackQueryHandler(store_min_prize, pattern='^' + str(SKIP) + '$')
             ],
             ASK_MAX_PRIZE: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_max_prize),
+                MessageHandler(filters.ALL, store_max_prize),
                 CallbackQueryHandler(store_max_prize, pattern='^' + str(SKIP) + '$')
             ],
             ASK_MIN_ROOM: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_min_room),
+                MessageHandler(filters.ALL, store_min_room),
                 CallbackQueryHandler(store_min_room, pattern='^' + str(SKIP) + '$')
             ],
             ASK_MAX_ROOM: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_max_room),
+                MessageHandler(filters.ALL, store_max_room),
                 CallbackQueryHandler(store_max_room, pattern='^' + str(SKIP) + '$')
             ],
             ASK_MIN_SURFACE: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_min_surface),
+                MessageHandler(filters.ALL, store_min_surface),
                 CallbackQueryHandler(store_min_surface, pattern='^' + str(SKIP) + '$')
             ],
             ASK_MAX_SURFACE: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_max_surface),
+                MessageHandler(filters.ALL, store_max_surface),
                 CallbackQueryHandler(store_max_surface, pattern='^' + str(SKIP) + '$')
             ],
             ASK_FLOOR: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_floor),
+                MessageHandler(filters.ALL, store_floor),
                 CallbackQueryHandler(store_floor, pattern='^' + str(SKIP) + '$')
             ],
             ASK_NAME: [
                 CommandHandler('cancel', cancel),
-                MessageHandler(filters.all, store_name),
+                MessageHandler(filters.ALL, store_name),
                 CallbackQueryHandler(store_name, pattern='^' + str(SKIP) + '$')
             ]
         },
@@ -99,7 +97,7 @@ def bot_handler():
         name="addwatch_conversation",
         allow_reentry=True
     )
-    dispatcher.add_handler(conv_addwatch_handler)
+    app.add_handler(conv_addwatch_handler)
     conv_watchlist_handler = ConversationHandler(
         entry_points=[CommandHandler("watchlist", watchlist)],
         states={
@@ -129,34 +127,34 @@ def bot_handler():
                 CallbackQueryHandler(watch_info, pattern='^' + str(BACK_TO_WATCH) + '$')
             ],
             EDIT_NAME: [
-                MessageHandler(filters.all, edit_name)
+                MessageHandler(filters.ALL, edit_name)
             ],
             EDIT_TYPE: [
-                MessageHandler(filters.all, edit_type)
+                MessageHandler(filters.ALL, edit_type)
             ],
             EDIT_CATEGORY: [
-                MessageHandler(filters.all, edit_category)
+                MessageHandler(filters.ALL, edit_category)
             ],
             EDIT_MIN_ROOM: [
-                MessageHandler(filters.all, edit_min_room)
+                MessageHandler(filters.ALL, edit_min_room)
             ],
             EDIT_MAX_ROOM: [
-                MessageHandler(filters.all, edit_max_room)
+                MessageHandler(filters.ALL, edit_max_room)
             ],
             EDIT_MIN_PRIZE: [
-                MessageHandler(filters.all, edit_min_prize)
+                MessageHandler(filters.ALL, edit_min_prize)
             ],
             EDIT_MAX_PRIZE: [
-                MessageHandler(filters.all, edit_max_prize)
+                MessageHandler(filters.ALL, edit_max_prize)
             ],
             EDIT_MIN_SURFACE: [
-                MessageHandler(filters.all, edit_min_surface)
+                MessageHandler(filters.ALL, edit_min_surface)
             ],
             EDIT_MAX_SURFACE: [
-                MessageHandler(filters.all, edit_max_surface)
+                MessageHandler(filters.ALL, edit_max_surface)
             ],
             EDIT_FLOOR: [
-                MessageHandler(filters.all, edit_floor)
+                MessageHandler(filters.ALL, edit_floor)
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
@@ -164,7 +162,7 @@ def bot_handler():
         persistent=True,
         allow_reentry=True
     )
-    dispatcher.add_handler(conv_watchlist_handler)
+    app.add_handler(conv_watchlist_handler)
     conv_watchlist_handler = ConversationHandler(
         entry_points=[CommandHandler("followers", followers)],
         states={
@@ -177,21 +175,20 @@ def bot_handler():
         persistent=True,
         allow_reentry=True
     )
-    dispatcher.add_handler(conv_watchlist_handler)
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(CommandHandler('cancel', cancel))
-    dispatcher.add_handler(CommandHandler("info", report, filters.user(ADMIN_ID)))
-    dispatcher.add_handler(CommandHandler("info", info))
-    dispatcher.add_handler(CallbackQueryHandler(restart_watch, pattern='^RESTART_WATCH '))
-    dispatcher.add_handler(CallbackQueryHandler(restart_report, pattern='^RESTART_REPORT'))
-    dispatcher.add_handler(CommandHandler("addwatch", addwatch))
-    dispatcher.add_handler(CommandHandler("watchlist", watchlist))
-    dispatcher.add_handler(CommandHandler("followers", followers))
-    dispatcher.add_handler(MessageHandler(filters.entity(MessageEntity.URL), add_watch_by_url))
-    dispatcher.add_handler(MessageHandler(filters.all, default))
+    app.add_handler(conv_watchlist_handler)
+    app.add_handler(CommandHandler('start', start))
+    app.add_handler(CommandHandler('cancel', cancel))
+    app.add_handler(CommandHandler("info", report, filters.User(ADMIN_ID)))
+    app.add_handler(CommandHandler("info", info))
+    app.add_handler(CallbackQueryHandler(restart_watch, pattern='^RESTART_WATCH '))
+    app.add_handler(CallbackQueryHandler(restart_report, pattern='^RESTART_REPORT'))
+    app.add_handler(CommandHandler("addwatch", addwatch))
+    app.add_handler(CommandHandler("watchlist", watchlist))
+    app.add_handler(CommandHandler("followers", followers))
+    app.add_handler(MessageHandler(filters.Entity(MessageEntity.URL), add_watch_by_url))
+    app.add_handler(MessageHandler(filters.ALL, default))
 
-    updater.start_polling()
-    updater.idle()
+    app.run_polling()
 
 
 def search_daemon():

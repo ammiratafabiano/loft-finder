@@ -9,15 +9,16 @@ from utils import format_floor, format_surface, format_int, format_amount, forma
 from models.watch import Watch
 
 
-def watchlist(update: Update, context: CallbackContext) -> int:
+async def watchlist(update: Update, context: CallbackContext) -> int:
     context.chat_data.clear()
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     query = update.callback_query
 
     if user.watchlist:
         if len(user.watchlist) == 1:
             context.chat_data['current_watch'] = user.watchlist[0]
-            return watch_info(update, context)
+            return await watch_info(update, context)
         else:
             buttons = []
             for watch in user.watchlist:
@@ -27,24 +28,25 @@ def watchlist(update: Update, context: CallbackContext) -> int:
             text = 'Quale delle seguenti ricerche vuoi visualizzare?'
             reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
             if query:
-                query.answer()
-                query.edit_message_text(text, parse_mode='MarkdownV2', reply_markup=reply_markup)
+                await query.answer()
+                await query.edit_message_text(text, parse_mode='MarkdownV2', reply_markup=reply_markup)
             else:
-                update.message.reply_markdown_v2(text, reply_markup=reply_markup)
+                await update.message.reply_markdown_v2(text, reply_markup=reply_markup)
             return WATCH_LIST
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
         text = 'Non hai ancora nessuna ricerca preferita.\n' \
                'Inviami il link di una ricerca su un sito di annunci per iniziare oppure ' \
                'usa il comando /addwatch per aggiungerla manualmente.'
-        update.message.reply_text(text)
+        await update.message.reply_text(text)
         return ConversationHandler.END
 
 
-def select_watch(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def select_watch(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     query = update.callback_query
 
     if query:
@@ -52,15 +54,16 @@ def select_watch(update: Update, context: CallbackContext) -> int:
         selected_watch = next((watch for watch in user.watchlist if watch.uuid == uuid), None)
         if selected_watch:
             context.chat_data['current_watch'] = selected_watch
-            return watch_info(update, context)
+            return await watch_info(update, context)
         else:
             return ConversationHandler.END
     else:
         return ConversationHandler.END
 
 
-def watch_info(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def watch_info(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     query = update.callback_query
 
@@ -85,17 +88,17 @@ def watch_info(update: Update, context: CallbackContext) -> int:
             ]
         ])
         if query:
-            query.answer()
-            query.edit_message_text(text, parse_mode='MarkdownV2', disable_web_page_preview=True,
-                                    reply_markup=reply_markup)
+            await query.answer()
+            await query.edit_message_text(text, parse_mode='MarkdownV2', disable_web_page_preview=True,
+                                          reply_markup=reply_markup)
         else:
-            update.message.reply_markdown_v2(text, disable_web_page_preview=True, reply_markup=reply_markup)
+            await update.message.reply_markdown_v2(text, disable_web_page_preview=True, reply_markup=reply_markup)
         return WATCH_INFO
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -134,8 +137,9 @@ def get_filters(watch: Watch):
     return text
 
 
-def remove_watch(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def remove_watch(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     query = update.callback_query
 
@@ -144,32 +148,33 @@ def remove_watch(update: Update, context: CallbackContext) -> int:
         if removed:
             storage.save()
             if query:
-                query.answer('Monitoraggio eliminato')
+                await query.answer('Monitoraggio eliminato')
                 text = f'Hai eliminato il monitoraggio di {removed.source}. ' \
                        f'Non riceverai più notifiche per questa ricerca.'
-                query.edit_message_text(text)
+                await query.edit_message_text(text)
             else:
                 text = f'Hai eliminato il monitoraggio di {removed.source}. ' \
                        f'Non riceverai più notifiche per questa ricerca.'
-                update.message.reply_text(text)
+                await update.message.reply_text(text)
         else:
             if query:
-                query.answer('Monitoraggio non esistente')
-                query.delete_message()
+                await query.answer('Monitoraggio non esistente')
+                await query.delete_message()
             else:
                 if update.message:
-                    update.message.delete()
+                    await update.message.delete()
         return WATCH_INFO
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def suspend_watch(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def suspend_watch(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     query = update.callback_query
 
@@ -179,26 +184,27 @@ def suspend_watch(update: Update, context: CallbackContext) -> int:
             storage.save()
             context.chat_data['current_watch'] = suspended
             if query:
-                query.answer('Monitoraggio messo in pausa')
-            return watch_info(update, context)
+                await query.answer('Monitoraggio messo in pausa')
+            return await watch_info(update, context)
         else:
             if query:
-                query.answer('Monitoraggio non esistente')
-                query.delete_message()
+                await query.answer('Monitoraggio non esistente')
+                await query.delete_message()
             else:
                 if update.message:
-                    update.message.delete()
+                    await update.message.delete()
             return WATCH_INFO
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def resume_watch(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def resume_watch(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     query = update.callback_query
 
@@ -208,25 +214,25 @@ def resume_watch(update: Update, context: CallbackContext) -> int:
             storage.save()
             context.chat_data['current_watch'] = resumed
             if query:
-                query.answer('Monitoraggio ripreso')
-            watch_info(update, context)
+                await query.answer('Monitoraggio ripreso')
+            await watch_info(update, context)
         else:
             if query:
-                query.answer('Monitoraggio non esistente')
-                query.delete_message()
+                await query.answer('Monitoraggio non esistente')
+                await query.delete_message()
             else:
                 if update.message:
-                    update.message.delete()
+                    await update.message.delete()
         return WATCH_INFO
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def edit_watch(update: Update, context: CallbackContext) -> int:
+async def edit_watch(update: Update, context: CallbackContext) -> int:
     watch: Watch = context.chat_data.get('current_watch', None)
     query = update.callback_query
 
@@ -258,25 +264,25 @@ def edit_watch(update: Update, context: CallbackContext) -> int:
                                   callback_data=str(FLOOR_FILTER))] if hasattr(watch, "floor") else []
         ])
         if query:
-            query.answer()
-            query.edit_message_text(text, reply_markup=reply_markup)
+            await query.answer()
+            await query.edit_message_text(text, reply_markup=reply_markup)
         else:
-            update.message.reply_text(text, reply_markup=reply_markup)
-        return EDIT_WATCH
+            await update.message.reply_text(text, reply_markup=reply_markup)
+        return await EDIT_WATCH
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def ask_name(update: Update, context: CallbackContext) -> int:
+async def ask_name(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Che nome vuoi dare alla ricerca?'
-        query.message.delete()
+        await query.message.delete()
         message = context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_NAME
@@ -284,8 +290,9 @@ def ask_name(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_name(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_name(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -301,25 +308,25 @@ def edit_name(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_NAME
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def ask_type(update: Update, context: CallbackContext) -> int:
+async def ask_type(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Che tipo di annuncio stai cercando?'
         reply_keyboard = [[e.value] for e in AdvType]
-        query.message.delete()
+        await query.message.delete()
         message = context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, input_field_placeholder='Tipo di annuncio'
         ))
@@ -329,8 +336,9 @@ def ask_type(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_type(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_type(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -343,25 +351,25 @@ def edit_type(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_TYPE
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def ask_category(update: Update, context: CallbackContext) -> int:
+async def ask_category(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Che categoria di annuncio stai cercando?'
         reply_keyboard = [[e.value] for e in AdvCategory]
-        query.message.delete()
+        await query.message.delete()
         message = context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, input_field_placeholder='Categoria di annuncio'
         ))
@@ -371,8 +379,9 @@ def ask_category(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_category(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_category(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -385,38 +394,40 @@ def edit_category(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_CATEGORY
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def edit_agency_filter(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_agency_filter(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     watch.agency_filter = not watch.agency_filter
     watch.set_url()
     user.set_watch(watch)
     storage.save()
     context.chat_data['current_watch'] = watch
-    return edit_watch(update, context)
+    return await edit_watch(update, context)
 
 
-def edit_auction_filter(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_auction_filter(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     watch.auction_filter = not watch.auction_filter
     watch.set_url()
     user.set_watch(watch)
     storage.save()
     context.chat_data['current_watch'] = watch
-    return edit_watch(update, context)
+    return await edit_watch(update, context)
 
 
 def ask_min_room_filter(update: Update, context: CallbackContext) -> int:
@@ -432,8 +443,9 @@ def ask_min_room_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_min_room(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_min_room(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -449,15 +461,15 @@ def edit_min_room(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_MIN_ROOM
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -474,8 +486,9 @@ def ask_max_room_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_max_room(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_max_room(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -491,15 +504,15 @@ def edit_max_room(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_MAX_ROOM
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -516,8 +529,9 @@ def ask_min_prize_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_min_prize(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_min_prize(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -533,15 +547,15 @@ def edit_min_prize(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_MIN_PRIZE
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -558,8 +572,9 @@ def ask_max_prize_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_max_prize(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_max_prize(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -575,15 +590,15 @@ def edit_max_prize(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_MAX_PRIZE
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -600,8 +615,9 @@ def ask_min_surface_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_min_surface(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_min_surface(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -617,15 +633,15 @@ def edit_min_surface(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_MIN_SURFACE
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -642,8 +658,9 @@ def ask_max_surface_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_max_surface(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_max_surface(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -658,17 +675,17 @@ def edit_max_surface(update: Update, context: CallbackContext) -> int:
         user.set_watch(watch)
         storage.save()
         context.chat_data['current_watch'] = watch
-        update.message.reply_text("", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("", reply_markup=ReplyKeyboardRemove())
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_MAX_SURFACE
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
@@ -688,8 +705,9 @@ def ask_floor_filter(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def edit_floor(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+async def edit_floor(update: Update, context: CallbackContext) -> int:
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     watch: Watch = context.chat_data.get('current_watch', None)
     last_message = context.chat_data["last_message"]
     query = update.callback_query
@@ -702,21 +720,22 @@ def edit_floor(update: Update, context: CallbackContext) -> int:
         storage.save()
         context.chat_data['current_watch'] = watch
         if update.message:
-            update.message.delete()
+            await update.message.delete()
         if last_message:
-            context.bot.delete_message(last_message.chat_id, last_message.message_id)
-        return edit_watch(update, context)
+            await context.bot.delete_message(last_message.chat_id, last_message.message_id)
+        return await edit_watch(update, context)
     elif query:
-        query.answer('Si è verificato un errore. Riprova.')
+        await query.answer('Si è verificato un errore. Riprova.')
         return EDIT_FLOOR
     else:
-        update.message.reply_text('Si è verificato un errore.')
+        await update.message.reply_text('Si è verificato un errore.')
         return ConversationHandler.END
 
 
-def followers(update: Update, context: CallbackContext) -> int:
+async def followers(update: Update, context: CallbackContext) -> int:
     context.chat_data.clear()
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     query = update.callback_query
 
     if hasattr(user, 'followers') and user.followers:
@@ -733,23 +752,24 @@ def followers(update: Update, context: CallbackContext) -> int:
         text = 'Lista dei tuoi followers'
         reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         if query:
-            query.answer()
-            query.edit_message_text(text, parse_mode='MarkdownV2', reply_markup=reply_markup)
+            await query.answer()
+            await query.edit_message_text(text, parse_mode='MarkdownV2', reply_markup=reply_markup)
         else:
-            update.message.reply_markdown_v2(text, reply_markup=reply_markup)
+            await update.message.reply_markdown_v2(text, reply_markup=reply_markup)
         return FOLLOWER_LIST
     elif query:
-        query.answer('Si è verificato un errore.')
+        await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
     else:
         url = f'https://t.me/loft_finder_bot?start={user.chat_id}'
         text = f'Non hai ancora nessuna follower\\. Invita altri utenti tramite questo [LINK]({url})\\.'
-        update.message.reply_text(text, parse_mode='MarkdownV2')
+        await update.message.reply_text(text, parse_mode='MarkdownV2')
         return ConversationHandler.END
 
 
 def remove_follower(update: Update, context: CallbackContext) -> int:
-    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)
+    user: User = storage.retrieve_user(update.effective_user.id, update.effective_user.username,
+                                       update.effective_user.first_name, update.effective_user.last_name)
     query = update.callback_query
 
     if query:

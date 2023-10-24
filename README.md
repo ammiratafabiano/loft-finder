@@ -1,5 +1,7 @@
 # Telegram Loft Finder Bot
 
+[@loft_finder_bot](https://t.me/loft_finder_bot)
+
 This Python Telegram bot helps users find lofts or houses available for rent or sale using data from popular Italian real estate websites. Users can apply filters to refine their search, and they will automatically receive notifications for new property listings.
 
 ## Features

@@ -20,6 +20,10 @@ This Python Telegram bot helps users find lofts or houses available for rent or 
 - **`/addwatch`:** Start the process to add a new watch.
 - **`/followers`:** Invite friends and family to subscribe to your watch updates.
 
+## Language
+- **Italian**
+- (English in the future)
+
 ## Prerequisites
 - **Python v3.9**
 - **python-telegram-bot v20.0**

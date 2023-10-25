@@ -20,3 +20,8 @@ This Python Telegram bot helps users find lofts or houses available for rent or 
 - **`/watchlist`:** Get list of added watches.
 - **`/addwatch`:** Start the process to add a new watch.
 - **`/followers`:** Invite friends and family to subscribe to your watch updates.
+
+- ## Prerequisites
+
+- **Python v3.9**
+- **python-telegram-bot v20.0**

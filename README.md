@@ -27,3 +27,8 @@ This Python Telegram bot helps users find lofts or houses available for rent or 
 ## Prerequisites
 - **Python v3.9**
 - **python-telegram-bot v20.0**
+
+## Screenshots
+<img src="https://github.com/ammiratafabiano/loft-finder/assets/36988217/31568b5c-4424-48b2-9559-6dabf2e6bd17" alt="drawing" width="200"/>
+<img src="https://github.com/ammiratafabiano/loft-finder/assets/36988217/63b81f56-162b-49d8-86c2-5a2e82d72c73" alt="drawing" width="200"/>
+<img src="https://github.com/ammiratafabiano/loft-finder/assets/36988217/924d0b92-9640-4abc-8367-c5959d7712f1" alt="drawing" width="200"/>

@@ -2,7 +2,8 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches:
+      - main
 
 env:
   REGISTRY: ghcr.io

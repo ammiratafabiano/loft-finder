@@ -39,31 +39,59 @@ class CasaWatch(Watch):
 
 	def get_ads(self):
 		response = scraping.get_page_with_requests(self.url)
-		raw_list = response.find_all('article', class_='srp-card')
-		if not raw_list:
-			logging.error("scraping - casa, trying with selenium")
-			write_log(self.display_name, response.get_text())
-			response = scraping.get_page_with_selenium(self.url)
-			raw_list = response.find_all('article', class_='srp-card')
-			if not raw_list:
-				logging.error("scraping - casa")
-				write_log(self.display_name, response.get_text())
-				return [], False
-		ads = []
-		for el in raw_list:
-			if el.a is not None:
-				url = 'https://' + self.source + el.a.get('href')
-				prize_item = el.find('div', class_='info-features__price')
-				prize = prize_item.p.get_text() if prize_item.p else prize_item.get_text()
-				match = re.findall('[0-9]+', prize.replace('.', ''))
-				prize = int(match[0]) if match else prize
-				rooms = None
-				try:
-					raw_rooms = el.find('div', class_='info-features__dtls').div\
-						.find_all('div', class_='info-features__item')[1].get_text().lower().replace('locali', '').strip()
-					rooms = int(raw_rooms) if raw_rooms.isdigit() else None
-				except (ValueError, Exception):
-					rooms = None
+                # Fallback on robust searching for article or div elements representing the property card
+                raw_list = response.find_all(re.compile(r'article|div'), class_=re.compile(r'srp-card|csaSrpcard'))
+                # deduplicate as sometimes nested divs match 
+                filtered_raw_list = []
+                seen = set()
+                for el in raw_list:
+                        # find the actual link
+                        a_tag = el.find('a', href=True)
+                        if a_tag and a_tag.get('href') not in seen and '/immobili/' in a_tag.get('href'):
+                                filtered_raw_list.append(el)
+                                seen.add(a_tag.get('href'))
+
+                if not filtered_raw_list:
+                        logging.error("scraping - casa, trying with selenium")
+                        write_log(self.display_name, response.get_text())
+                        response = scraping.get_page_with_selenium(self.url)
+                        raw_list = response.find_all(re.compile(r'article|div'), class_=re.compile(r'srp-card|csaSrpcard'))
+                        filtered_raw_list = []
+                        seen = set()
+                        for el in raw_list:
+                                a_tag = el.find('a', href=True)
+                                if a_tag and a_tag.get('href') not in seen and '/immobili/' in a_tag.get('href'):
+                                        filtered_raw_list.append(el)
+                                        seen.add(a_tag.get('href'))
+
+                        if not filtered_raw_list:
+                                logging.error("scraping - casa")
+                                write_log(self.display_name, response.get_text())
+                                return [], False
+
+                ads = []
+                for el in filtered_raw_list:
+                        a_tag = el.find('a', href=True)
+                        if a_tag is not None:
+                                url = 'https://www.' + self.source + a_tag.get('href') if not a_tag.get('href').startswith('http') else a_tag.get('href')
+                                
+                                prize = "0"
+                                prize_item = el.find(string=re.compile(r'€'))
+                                if prize_item:
+                                        prize = prize_item.parent.get_text()
+                                else:
+                                        prize_item = el.find(re.compile(r'div|p'), class_=re.compile(r'price|prezzo'))
+                                        if prize_item:
+                                                prize = prize_item.get_text()
+                                
+                                match = re.findall('[0-9]+', prize.replace('.', ''))
+                                prize = int(match[0]) if match else prize
+                                rooms = None
+                                try:
+                                        rooms_txt = " ".join([t for t in el.stripped_strings])
+                                        room_match = re.search(r'([0-9]+)\s*locali', rooms_txt, re.IGNORECASE)
+                                        if room_match:
+                                                rooms = int(room_match.group(1))
 				if (self.min_rooms and rooms and rooms < self.min_rooms) or (self.max_rooms and rooms and rooms > self.max_rooms):
 					continue
 				new_adv = Adv(self.display_name, url, prize)

@@ -1,5 +1,11 @@
+import json
+import os
 from enum import Enum
+from pathlib import Path
 
+# Paths
+SCRIPT_DIR = Path(__file__).resolve().parent
+CONFIG_FILE = SCRIPT_DIR / "config.json"
 
 class AdvType(Enum):
     AFFITTO = 'Affitto'
@@ -40,6 +46,15 @@ class FloorType(Enum):
     LAST = 'Ultimo'
     ALL = 'Tutti'
 
+# Load config
+config_data = {}
+if CONFIG_FILE.exists():
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+    except Exception as e:
+        print(f"Error loading config.json: {e}")
 
-ADMIN_ID = 88654383
-BOT_TOKEN = 'BOT_TOKEN'
+# Values come exclusively from config.json
+ADMIN_ID = int(config_data.get('ADMIN_ID', 0))
+BOT_TOKEN = config_data.get('BOT_TOKEN', "")

@@ -1,0 +1,27 @@
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE e Editor
+.idea/
+.vscode/
+
+# Config e persistenza dati/database
+storage.p
+report.p
+conversationbot
+conversationbot*
+logs/
+*.txt
+config.json
+.env
+
+# macOS
+.DS_Store
+
+# Dipendenze e pacchetti extra
+/backup/
+
+# Non ignorare requirements.txt
+!requirements.txt

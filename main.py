@@ -24,7 +24,126 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def bot_handler():
+async def search_daemon(context: telegram.ext.CallbackContext = None):
+    logging.info("search deamon started")
+
+    while True:
+        if len(storage.load()) == 0:
+            await asyncio.sleep(10)
+            continue
+        for user in storage.load():
+            per_user_delay = max(10 * 60, int(random.randint(55 * 30, 65 * 30) / len(storage.users)))
+            if user.last_update:
+                diff = get_time() - user.last_update
+                if diff < per_user_delay:
+                    partial_per_user_delay = per_user_delay - diff
+                    logging.info(f"sleep for {int(partial_per_user_delay / 60)} minutes (partial)")
+                    await asyncio.sleep(partial_per_user_delay)
+            # update user data during sleep
+            user: User = next((x for x in storage.load() if x.chat_id == user.chat_id), None)
+            if not user:
+                continue
+            for watch in user.watchlist:
+                blocked = watch.remaining_attempts > 0
+                logging.info(f"{user.username} {watch.display_name} attempts {watch.remaining_attempts}/{watch.attempts}, blocked {blocked}")
+                watch.remaining_attempts = watch.remaining_attempts - 1 if watch.remaining_attempts > 0 else 0
+                watch.status = True if watch.remaining_attempts == 0 and watch.attempts > 0 else watch.status
+                if watch.is_active and not blocked:
+                    if watch.status:
+                        # run scraping synchronously in an executor so we don't block the telegram event loop!
+                        loop = asyncio.get_running_loop()
+                        ads, status = await loop.run_in_executor(None, watch.get_ads)
+                        logging.info(f"{user.username} {watch.display_name} {len(ads)}, status: {status}")
+                        online_user = True
+                        if status:
+                            watch.attempts = 0
+                            ads_sent = 0
+                            for ad in ads:
+                                history = []
+                                for w in user.watchlist:
+                                    if w.source == watch.source:
+                                        history += w.history
+                                if ad.url not in history:
+                                    if not watch.first_execution:
+                                        online_user = await send_adv(user, ad, watch)
+                                    if not online_user:
+                                        break
+                                    else:
+                                        ads_sent += 1
+                                        watch.history.append(ad.url)
+                            watch.first_execution = False
+                            storage.add_update(watch.display_name, ads_sent)
+                        else:
+                            if watch.attempts == 0:
+                                await send_alert(watch)
+                                watch.attempts = 1
+                            else:
+                                watch.attempts *= 2
+                            watch.remaining_attempts = watch.attempts
+                        if online_user:
+                            watch.status = status
+                            user.last_update = get_time()
+                            storage.save()
+                            per_watch_delay = random.randint(7, 13)
+                            logging.info(f"sleep for {per_watch_delay} seconds")
+                            await asyncio.sleep(per_watch_delay)
+                        per_watch_delay = random.randint(7, 13)
+                        logging.info(f"sleep for {per_watch_delay} seconds")
+                        await asyncio.sleep(per_watch_delay)
+                        if not online_user:
+                            break
+                    else:
+                        logging.warning(f"{watch.display_name} is not working")
+            logging.info(f"sleep for {int(per_user_delay / 60)} minutes")
+            await asyncio.sleep(per_user_delay)
+        if 0 <= datetime.now().hour < 8:
+            per_loop_delay = random.randint(60 * 60 * 2, 60 * 60 * 3)
+            logging.info(f"sleep for {int(per_loop_delay / 3600)} hours")
+            await asyncio.sleep(per_loop_delay)
+
+
+async def send_adv(user: User, adv: Adv, watch: Watch):
+    try:
+        text = f'\U0001F3E0 Nuova Inserzione da {adv.display_name}\n{watch.type.value} \\- {watch.description or watch.city}\n{format_amount(adv.prize, markdown=True)}'
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text=u'\U0001F517 Apri', url=adv.url)
+            ]
+        ])
+        bot = telegram.Bot(token=BOT_TOKEN)
+        await bot.send_message(user.chat_id, text, parse_mode='MarkdownV2', disable_web_page_preview=True, reply_markup=reply_markup)
+        if hasattr(user, 'followers'):
+            for follower in user.followers:
+                text = f'\U0001F3E0 Nuova Inserzione da {adv.display_name}\n{watch.type.value} \\- {watch.description or watch.city}\n{format_amount(adv.prize, markdown=True)} condivisa da {user.username}'
+                await bot.send_message(follower, text, parse_mode='MarkdownV2', disable_web_page_preview=True, reply_markup=reply_markup)
+        return True
+    except Exception as e:
+        error_str = str(e)
+        logging.error(f"\n\n---------\n\nError with ChatId {user.chat_id}, User {user.username}")
+        print(error_str)
+        logging.error("\n\n---------\n\n")
+        if "blocked" in error_str or "urllib3.exceptions" in error_str:
+            deleted = storage.delete_user(user.chat_id)
+            if deleted:
+                logging.info(f"Bot blocked by user {user.username}, DELETED")
+            else:
+                logging.error(f"Error attempting to delete user {user.username}")
+        return False
+
+
+async def send_alert(watch: Watch):
+    text = f'⚠️⚠️⚠️\nProblema di servizio per {watch.display_name}. Clicca /info per maggiori dettagli.'
+    try:
+        await telegram.Bot(token=BOT_TOKEN).send_message(ADMIN_ID, text)
+    except Exception as e:
+        logging.error(f"Failed to send alert: {e}")
+
+
+def main():
+    if not BOT_TOKEN:
+        logging.error("❌ Token Telegram (BOT_TOKEN) non configurato! Controlla variabili ambiente o config.json")
+        return
+        
     persistence = PicklePersistence(filepath='conversationbot')
     app = ApplicationBuilder().token(BOT_TOKEN).persistence(persistence).build()
 
@@ -126,36 +245,16 @@ def bot_handler():
                 CallbackQueryHandler(ask_floor_filter, pattern='^' + str(FLOOR_FILTER) + '$'),
                 CallbackQueryHandler(watch_info, pattern='^' + str(BACK_TO_WATCH) + '$')
             ],
-            EDIT_NAME: [
-                MessageHandler(filters.ALL, edit_name)
-            ],
-            EDIT_TYPE: [
-                MessageHandler(filters.ALL, edit_type)
-            ],
-            EDIT_CATEGORY: [
-                MessageHandler(filters.ALL, edit_category)
-            ],
-            EDIT_MIN_ROOM: [
-                MessageHandler(filters.ALL, edit_min_room)
-            ],
-            EDIT_MAX_ROOM: [
-                MessageHandler(filters.ALL, edit_max_room)
-            ],
-            EDIT_MIN_PRIZE: [
-                MessageHandler(filters.ALL, edit_min_prize)
-            ],
-            EDIT_MAX_PRIZE: [
-                MessageHandler(filters.ALL, edit_max_prize)
-            ],
-            EDIT_MIN_SURFACE: [
-                MessageHandler(filters.ALL, edit_min_surface)
-            ],
-            EDIT_MAX_SURFACE: [
-                MessageHandler(filters.ALL, edit_max_surface)
-            ],
-            EDIT_FLOOR: [
-                MessageHandler(filters.ALL, edit_floor)
-            ]
+            EDIT_NAME: [MessageHandler(filters.ALL, edit_name)],
+            EDIT_TYPE: [MessageHandler(filters.ALL, edit_type)],
+            EDIT_CATEGORY: [MessageHandler(filters.ALL, edit_category)],
+            EDIT_MIN_ROOM: [MessageHandler(filters.ALL, edit_min_room)],
+            EDIT_MAX_ROOM: [MessageHandler(filters.ALL, edit_max_room)],
+            EDIT_MIN_PRIZE: [MessageHandler(filters.ALL, edit_min_prize)],
+            EDIT_MAX_PRIZE: [MessageHandler(filters.ALL, edit_max_prize)],
+            EDIT_MIN_SURFACE: [MessageHandler(filters.ALL, edit_min_surface)],
+            EDIT_MAX_SURFACE: [MessageHandler(filters.ALL, edit_max_surface)],
+            EDIT_FLOOR: [MessageHandler(filters.ALL, edit_floor)]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
         name="watchlist_conversation",
@@ -163,7 +262,8 @@ def bot_handler():
         allow_reentry=True
     )
     app.add_handler(conv_watchlist_handler)
-    conv_watchlist_handler = ConversationHandler(
+
+    conv_followers_handler = ConversationHandler(
         entry_points=[CommandHandler("followers", followers)],
         states={
             FOLLOWER_LIST: [
@@ -171,11 +271,11 @@ def bot_handler():
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
-        name="watchlist_conversation",
+        name="followers_conversation",
         persistent=True,
         allow_reentry=True
     )
-    app.add_handler(conv_watchlist_handler)
+    app.add_handler(conv_followers_handler)
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('cancel', cancel))
     app.add_handler(CommandHandler("info", report, filters.User(ADMIN_ID)))
@@ -188,127 +288,11 @@ def bot_handler():
     app.add_handler(MessageHandler(filters.Entity(MessageEntity.URL), add_watch_by_url))
     app.add_handler(MessageHandler(filters.ALL, default))
 
+    # avvia task asincrono in background per evitare il multiprocess problematico
+    asyncio.get_event_loop().create_task(search_daemon())
+    
     app.run_polling()
 
-
-def search_daemon():
-    logging.info("search deamon started")
-
-    while True:
-        if len(storage.load()) == 0:
-            time.sleep(10)
-            continue
-        for user in storage.load():
-            per_user_delay = max(10 * 60, int(random.randint(55 * 30, 65 * 30) / len(storage.users)))
-            if user.last_update:
-                diff = get_time() - user.last_update
-                if diff < per_user_delay:
-                    partial_per_user_delay = per_user_delay - diff
-                    logging.info(f"sleep for {int(partial_per_user_delay / 60)} minutes (partial)")
-                    time.sleep(partial_per_user_delay)
-            # update user data during sleep
-            user: User = next((x for x in storage.load() if x.chat_id == user.chat_id), None)
-            if not user:
-                continue
-            for watch in user.watchlist:
-                blocked = watch.remaining_attempts > 0
-                logging.info(f"{user.username} {watch.display_name} attempts {watch.remaining_attempts}/{watch.attempts}, blocked {blocked}")
-                watch.remaining_attempts = watch.remaining_attempts - 1 if watch.remaining_attempts > 0 else 0
-                watch.status = True if watch.remaining_attempts == 0 and watch.attempts > 0 else watch.status
-                if watch.is_active and not blocked:
-                    if watch.status:
-                        ads, status = watch.get_ads()
-                        logging.info(f"{user.username} {watch.display_name} {len(ads)}, status: {status}")
-                        online_user = True
-                        if status:
-                            watch.attempts = 0
-                            ads_sent = 0
-                            for ad in ads:
-                                # check all watch in case of multiple watch with same source
-                                history = []
-                                for w in user.watchlist:
-                                    if w.source == watch.source:
-                                        history += w.history
-                                if ad.url not in history:
-                                    if not watch.first_execution:
-                                        online_user = send_adv(user, ad, watch)
-                                    if not online_user:
-                                        break
-                                    else:
-                                        ads_sent += 1
-                                        watch.history.append(ad.url)
-                            watch.first_execution = False
-                            storage.add_update(watch.display_name, ads_sent)
-                        else:
-                            if watch.attempts == 0:
-                                send_alert(watch)
-                                watch.attempts = 1
-                            else:
-                                watch.attempts *= 2
-                            watch.remaining_attempts = watch.attempts
-                        if online_user:
-                            watch.status = status
-                            user.last_update = get_time()
-                            storage.save()
-                            per_watch_delay = random.randint(7, 13)
-                            logging.info(f"sleep for {per_watch_delay} seconds")
-                            time.sleep(per_watch_delay)
-                        per_watch_delay = random.randint(7, 13)
-                        logging.info(f"sleep for {per_watch_delay} seconds")
-                        time.sleep(per_watch_delay)
-                        if not online_user:
-                            break
-                    else:
-                        logging.warning(f"{watch.display_name} is not working")
-            logging.info(f"sleep for {int(per_user_delay / 60)} minutes")
-            time.sleep(per_user_delay)
-        if 0 <= datetime.now().hour < 8:
-            per_loop_delay = random.randint(60 * 60 * 2, 60 * 60 * 3)
-            logging.info(f"sleep for {int(per_loop_delay / 3600)} hours")
-            time.sleep(per_loop_delay)
-
-
-def send_adv(user: User, adv: Adv, watch: Watch):
-    try:
-        text = f'\U0001F3E0 Nuova Inserzione da {adv.display_name}\n{watch.type.value} \\- {watch.description or watch.city}\n{format_amount(adv.prize, markdown=True)}'
-        reply_markup = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text=u'\U0001F517 Apri', url=adv.url)
-            ]
-        ])
-        telegram.Bot(token=BOT_TOKEN).send_message(user.chat_id, text, parse_mode='MarkdownV2',
-                                                   disable_web_page_preview=True,
-                                                   reply_markup=reply_markup)
-        if hasattr(user, 'followers'):
-            for follower in user.followers:
-                text = f'\U0001F3E0 Nuova Inserzione da {adv.display_name}\n{watch.type.value} \\- {watch.description or watch.city}\n{format_amount(adv.prize, markdown=True)} condivisa da {user.username}'
-                telegram.Bot(token=BOT_TOKEN).send_message(follower, text, parse_mode='MarkdownV2',
-                                                           disable_web_page_preview=True,
-                                                           reply_markup=reply_markup)
-        return True
-    except Exception as e:
-        error_str = str(e)
-        logging.error(f"\n\n---------\n\nError with ChatId {user.chat_id}, User {user.username}")
-        print(error_str)
-        logging.error("\n\n---------\n\n")
-        if "blocked" in error_str:
-            deleted = storage.delete_user(user.chat_id)
-            if deleted:
-                logging.info(f"Bot blocked by user {user.username}, DELETED")
-            else:
-                logging.error(f"Error attempting to delete user {user.username}")
-        return False
-
-
-def send_alert(watch: Watch):
-    text = f'⚠️⚠️⚠️\nProblema di servizio per {watch.display_name}. Clicca /info per maggiori dettagli.'
-    telegram.Bot(token=BOT_TOKEN).send_message(ADMIN_ID, text)
-
-
 if __name__ == '__main__':
-    executor = ProcessPoolExecutor(2)
-    loop = asyncio.get_event_loop()
-    boo = loop.run_in_executor(executor, bot_handler)
-    baa = loop.run_in_executor(executor, search_daemon)
+    main()
 
-    loop.run_forever()

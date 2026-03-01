@@ -41,25 +41,32 @@ class ImmobiliareWatch(Watch):
 
     def get_ads(self):
         response = scraping.get_page_with_requests(self.url)
-        raw_list = response.find_all('li', class_='nd-list__item in-realEstateResults__item')
+        # Immobiliare has changed classes multiple times; look for general listing items
+        raw_list = response.find_all('li', class_=re.compile(r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
         if not raw_list:
             logging.error("scraping - immobiliare, trying with selenium")
             write_log(self.display_name, response.get_text())
             response = scraping.get_page_with_selenium(self.url)
-            raw_list = response.find_all('li', class_='nd-list__item in-realEstateResults__item')
+            raw_list = response.find_all('li', class_=re.compile(r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
             if not raw_list:
                 logging.error("scraping - immobiliare")
                 write_log(self.display_name, response.get_text())
                 return [], False
         ads = []
         for raw_adv in raw_list:
-            temp = raw_adv.a
+            temp = raw_adv.find('a', href=True)
             if temp is not None:
                 url = temp.get('href')
-                prize = raw_adv.find('li', class_='in-feat__item--main').get_text(separator=' ')
+                prize_elem = raw_adv.find(string=re.compile(r'€'))
+                if not prize_elem:
+                    prize_elem = raw_adv.find('li', class_=re.compile(r'in-feat__item|price'))
+                    prize = prize_elem.get_text(separator=' ') if prize_elem else "0"
+                else:
+                    prize = prize_elem.parent.get_text(separator=' ')
+                
                 match = re.findall('[0-9]+', prize.replace('.', ''))
                 prize = int(match[0]) if match else prize
-                agency = raw_adv.find('div', class_='in-realEstateListCard__referent')
+                agency = raw_adv.find('div', class_=re.compile(r'in-realEstateListCard__referent|in-card__referent'))
                 if not self.agency_filter or (self.agency_filter and not agency):
                     new_adv = Adv(self.display_name, url, prize)
                     ads.append(new_adv)

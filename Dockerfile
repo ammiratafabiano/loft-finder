@@ -1,6 +1,6 @@
 FROM python:3.9-slim
 
-# Install dependencies for Chromium and undetected-chromedriver
+# Install dependencies for Chromium, undetected-chromedriver and C extensions
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     chromium \
     chromium-driver \
+    gcc \
+    python3-dev \
+    libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up the working directory

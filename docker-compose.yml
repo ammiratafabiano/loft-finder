@@ -1,6 +1,6 @@
 services:
   loft-finder:
-    image: ghcr.io/ammiratafabiano/loft-finder:master
+    image: ghcr.io/ammiratafabiano/loft-finder:main
     container_name: loft-finder
     restart: unless-stopped
     volumes:

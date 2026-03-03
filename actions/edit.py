@@ -268,7 +268,7 @@ async def edit_watch(update: Update, context: CallbackContext) -> int:
             await query.edit_message_text(text, reply_markup=reply_markup)
         else:
             await update.message.reply_text(text, reply_markup=reply_markup)
-        return await EDIT_WATCH
+        return EDIT_WATCH
     elif query:
         await query.answer('Si è verificato un errore.')
         return ConversationHandler.END
@@ -283,7 +283,7 @@ async def ask_name(update: Update, context: CallbackContext) -> int:
     if query:
         text = 'Che nome vuoi dare alla ricerca?'
         await query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_NAME
     else:
@@ -327,7 +327,7 @@ async def ask_type(update: Update, context: CallbackContext) -> int:
         text = 'Che tipo di annuncio stai cercando?'
         reply_keyboard = [[e.value] for e in AdvType]
         await query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
+        message = await context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, input_field_placeholder='Tipo di annuncio'
         ))
         context.chat_data["last_message"] = message
@@ -370,7 +370,7 @@ async def ask_category(update: Update, context: CallbackContext) -> int:
         text = 'Che categoria di annuncio stai cercando?'
         reply_keyboard = [[e.value] for e in AdvCategory]
         await query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
+        message = await context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, input_field_placeholder='Categoria di annuncio'
         ))
         context.chat_data["last_message"] = message
@@ -430,13 +430,13 @@ async def edit_auction_filter(update: Update, context: CallbackContext) -> int:
     return await edit_watch(update, context)
 
 
-def ask_min_room_filter(update: Update, context: CallbackContext) -> int:
+async def ask_min_room_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Quante stanze minime? (indicare solo il numero, es: 2)'
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_MIN_ROOM
     else:
@@ -473,13 +473,13 @@ async def edit_min_room(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def ask_max_room_filter(update: Update, context: CallbackContext) -> int:
+async def ask_max_room_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Quante stanze massime? (indicare solo il numero, es: 5)'
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_MAX_ROOM
     else:
@@ -516,13 +516,13 @@ async def edit_max_room(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def ask_min_prize_filter(update: Update, context: CallbackContext) -> int:
+async def ask_min_prize_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Quale prezzo minimo? (indicare solo il numero, es: 50000)'
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_MIN_PRIZE
     else:
@@ -559,13 +559,13 @@ async def edit_min_prize(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def ask_max_prize_filter(update: Update, context: CallbackContext) -> int:
+async def ask_max_prize_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Quale prezzo massimo? (indicare solo il numero, es: 100000)'
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_MAX_PRIZE
     else:
@@ -602,13 +602,13 @@ async def edit_max_prize(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def ask_min_surface_filter(update: Update, context: CallbackContext) -> int:
+async def ask_min_surface_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Quanta superficie minima? (indicare solo il numero, es: 50)'
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_MIN_SURFACE
     else:
@@ -645,13 +645,13 @@ async def edit_min_surface(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def ask_max_surface_filter(update: Update, context: CallbackContext) -> int:
+async def ask_max_surface_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'Quanta superficie massima? (indicare solo il numero, es: 100)'
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text)
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text)
         context.chat_data["last_message"] = message
         return EDIT_MAX_SURFACE
     else:
@@ -689,14 +689,14 @@ async def edit_max_surface(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def ask_floor_filter(update: Update, context: CallbackContext) -> int:
+async def ask_floor_filter(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
 
     if query:
         text = 'A che piano?'
         reply_keyboard = [[e.value] for e in FloorType]
-        query.message.delete()
-        message = context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
+        await query.message.delete()
+        message = await context.bot.send_message(update.effective_user.id, text, reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, input_field_placeholder='Piano'
         ))
         context.chat_data["last_message"] = message

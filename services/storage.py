@@ -27,8 +27,9 @@ class Storage:
 			return self.users
 		except FileNotFoundError:
 			return self.save()
-		except (ValueError, Exception):
-			return []
+		except (EOFError, ValueError, Exception):
+			self.users = []
+			return self.save()
 
 	def create_user(self, chat_id, username):
 		self.load()
@@ -71,8 +72,9 @@ class Storage:
 			return self.report
 		except FileNotFoundError:
 			return self.save_report()
-		except (ValueError, Exception):
-			return Report()
+		except (EOFError, ValueError, Exception):
+			self.report = Report()
+			return self.save_report()
 
 	def add_update(self, watch_type: str, ads_sent: int):
 		if self.load_report():

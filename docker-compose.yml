@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./loft-finder/config.json:/app/config.json
-      - ./loft-finder/storage.p:/app/storage.p
-      - ./loft-finder/report.p:/app/report.p
-      - ./loft-finder/conversationbot:/app/conversationbot
+      - ./loft-finder/data:/app/data
     labels:
       - "com.centurylinklabs.watchtower.enable=true"

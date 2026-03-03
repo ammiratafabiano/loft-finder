@@ -8,10 +8,7 @@ __pycache__/
 .vscode/
 
 # Config e persistenza dati/database
-storage.p
-report.p
-conversationbot
-conversationbot*
+data/
 logs/
 *.txt
 config.json

@@ -16,14 +16,14 @@ class Storage:
 
 	def save(self):
 		try:
-			pickle.dump(self.users, open('storage.p', 'wb'))
+			pickle.dump(self.users, open('data/storage.p', 'wb'))
 			return self.users
 		except (ValueError, Exception):
 			return []
 
 	def load(self):
 		try:
-			self.users = pickle.load(open('storage.p', 'rb'))
+			self.users = pickle.load(open('data/storage.p', 'rb'))
 			return self.users
 		except FileNotFoundError:
 			return self.save()
@@ -61,14 +61,14 @@ class Storage:
 
 	def save_report(self):
 		try:
-			pickle.dump(self.report, open('report.p', 'wb'))
+			pickle.dump(self.report, open('data/report.p', 'wb'))
 			return self.report
 		except (ValueError, Exception):
 			return Report()
 
 	def load_report(self):
 		try:
-			self.report = pickle.load(open('report.p', 'rb'))
+			self.report = pickle.load(open('data/report.p', 'rb'))
 			return self.report
 		except FileNotFoundError:
 			return self.save_report()

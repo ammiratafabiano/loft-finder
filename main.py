@@ -144,7 +144,7 @@ def main():
         logging.error("❌ Token Telegram (BOT_TOKEN) non configurato! Controlla variabili ambiente o config.json")
         return
         
-    persistence = PicklePersistence(filepath='conversationbot')
+    persistence = PicklePersistence(filepath='data/conversationbot')
     app = ApplicationBuilder().token(BOT_TOKEN).persistence(persistence).build()
 
     conv_addwatch_handler = ConversationHandler(

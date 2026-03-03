@@ -25,6 +25,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Crea le directory di persistenza
+RUN mkdir -p /app/logs /app/data
+
 # Run the bot
 CMD ["python", "main.py"]
 

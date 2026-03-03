@@ -1,3 +1,4 @@
+import os
 import re
 import time
 import json
@@ -84,6 +85,7 @@ def read_json(filename: str) -> dict or list:
 def write_log(title: str, text: str):
     if not text:
         return
+    os.makedirs('logs', exist_ok=True)
     now = datetime.now().strftime("%Y%m%d%H%M%S")
     with open(f"logs/{title}_{now}.txt", "w") as file:
         file.write(text)

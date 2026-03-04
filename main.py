@@ -44,6 +44,10 @@ async def search_daemon(context: telegram.ext.CallbackContext = None):
             if not user:
                 continue
             for watch in user.watchlist:
+                # Migrazione: imposta base_attempts per watch serializzati prima di questa versione
+                if not hasattr(watch, 'base_attempts'):
+                    from costants import WatchType
+                    watch.base_attempts = 6 if watch.display_name == WatchType.IDEALISTA.value else 1
                 blocked = watch.remaining_attempts > 0
                 logging.info(f"{user.username} {watch.display_name} attempts {watch.remaining_attempts}/{watch.attempts}, blocked {blocked}")
                 watch.remaining_attempts = watch.remaining_attempts - 1 if watch.remaining_attempts > 0 else 0
@@ -76,7 +80,7 @@ async def search_daemon(context: telegram.ext.CallbackContext = None):
                         else:
                             if watch.attempts == 0:
                                 await send_alert(watch)
-                                watch.attempts = 1
+                                watch.attempts = getattr(watch, 'base_attempts', 1)
                             else:
                                 watch.attempts *= 2
                             watch.remaining_attempts = watch.attempts

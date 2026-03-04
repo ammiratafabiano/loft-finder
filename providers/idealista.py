@@ -20,6 +20,8 @@ class IdealistaWatch(Watch):
 		self.description = description
 		self.first_execution = True
 		self.status = True
+		# Idealista blocca l'IP velocemente: parte con un backoff minimo di 6 cicli (~1h)
+		self.base_attempts = 6
 		if not url:
 			self.__set_default_filter()
 			self.source = source

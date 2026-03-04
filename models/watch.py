@@ -20,6 +20,8 @@ class Watch:
 		self.status = True
 		self.attempts = 0
 		self.remaining_attempts = 0
+		# Numero minimo di cicli da saltare alla prima failure (aumentare per provider più aggressivi)
+		self.base_attempts = 1
 		self.__set_filters()
 
 	def get_ads(self):

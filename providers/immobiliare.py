@@ -1,3 +1,4 @@
+import json
 import logging
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
@@ -39,19 +40,99 @@ class ImmobiliareWatch(Watch):
             self.url = url
             self.__set_filters()
 
+    @staticmethod
+    def _parse_next_data(soup):
+        """Estrae i risultati dal JSON __NEXT_DATA__ embeddato nelle pagine Next.js di Immobiliare.it"""
+        script_tag = soup.find('script', id='__NEXT_DATA__', type='application/json')
+        if not script_tag:
+            return None
+        try:
+            data = json.loads(script_tag.string)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        # Naviga ricorsivamente il JSON cercando array "results" con chiave "realEstate"
+        def find_results(obj, depth=0):
+            if depth > 10:
+                return None
+            if isinstance(obj, dict):
+                if 'results' in obj and isinstance(obj['results'], list):
+                    candidates = obj['results']
+                    if candidates and isinstance(candidates[0], dict) and 'realEstate' in candidates[0]:
+                        return candidates
+                for v in obj.values():
+                    found = find_results(v, depth + 1)
+                    if found is not None:
+                        return found
+            elif isinstance(obj, list):
+                for item in obj:
+                    found = find_results(item, depth + 1)
+                    if found is not None:
+                        return found
+            return None
+
+        return find_results(data)
+
     def get_ads(self):
         response = scraping.get_page_with_requests(self.url)
-        # Immobiliare has changed classes multiple times; look for general listing items
-        raw_list = response.find_all('li', class_=re.compile(r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
-        if not raw_list:
-            logging.error("scraping - immobiliare, trying with selenium")
-            write_log(self.display_name, response.get_text())
-            response = scraping.get_page_with_selenium(self.url)
-            raw_list = response.find_all('li', class_=re.compile(r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
-            if not raw_list:
-                logging.error("scraping - immobiliare")
-                write_log(self.display_name, response.get_text())
-                return [], False
+
+        # --- Tentativo 1: __NEXT_DATA__ JSON (immune ai cambi di classi CSS) ---
+        results = self._parse_next_data(response)
+        if results is not None:
+            return self._ads_from_next_data(results), True
+
+        # --- Tentativo 2: HTML parsing classico ---
+        raw_list = response.find_all('li', class_=re.compile(
+            r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
+        if raw_list:
+            return self._ads_from_html(raw_list), True
+
+        # --- Tentativo 3: Selenium con __NEXT_DATA__ ---
+        logging.error("scraping - immobiliare, trying with selenium")
+        write_log(self.display_name, response.get_text())
+        response = scraping.get_page_with_selenium(self.url)
+
+        results = self._parse_next_data(response)
+        if results is not None:
+            return self._ads_from_next_data(results), True
+
+        raw_list = response.find_all('li', class_=re.compile(
+            r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
+        if raw_list:
+            return self._ads_from_html(raw_list), True
+
+        logging.error("scraping - immobiliare")
+        write_log(self.display_name, response.get_text())
+        return [], False
+
+    def _ads_from_next_data(self, results):
+        ads = []
+        for item in results:
+            re_data = item.get('realEstate', {})
+            if not re_data:
+                continue
+            # URL: può stare in properties[0].url o direttamente in realEstate.url
+            props = re_data.get('properties', [])
+            url = props[0].get('url', '') if props else re_data.get('url', '')
+            if not url:
+                continue
+            if not url.startswith('http'):
+                url = f"https://{self.source}{url}"
+            # Prezzo
+            price_obj = re_data.get('price', {})
+            prize = price_obj.get('value', 0) if isinstance(price_obj, dict) else 0
+            if not prize:
+                prize = price_obj.get('formattedValue', '0') if isinstance(price_obj, dict) else '0'
+                match = re.findall(r'[0-9]+', str(prize).replace('.', ''))
+                prize = int(match[0]) if match else prize
+            # Filtro agenzie
+            agency = re_data.get('agency') or re_data.get('advertiser', {})
+            has_agency = bool(agency)
+            if not self.agency_filter or (self.agency_filter and not has_agency):
+                ads.append(Adv(self.display_name, url, prize))
+        return ads
+
+    def _ads_from_html(self, raw_list):
         ads = []
         for raw_adv in raw_list:
             temp = raw_adv.find('a', href=True)
@@ -63,14 +144,12 @@ class ImmobiliareWatch(Watch):
                     prize = prize_elem.get_text(separator=' ') if prize_elem else "0"
                 else:
                     prize = prize_elem.parent.get_text(separator=' ')
-                
                 match = re.findall('[0-9]+', prize.replace('.', ''))
                 prize = int(match[0]) if match else prize
                 agency = raw_adv.find('div', class_=re.compile(r'in-realEstateListCard__referent|in-card__referent'))
                 if not self.agency_filter or (self.agency_filter and not agency):
-                    new_adv = Adv(self.display_name, url, prize)
-                    ads.append(new_adv)
-        return ads, True
+                    ads.append(Adv(self.display_name, url, prize))
+        return ads
 
     def __set_default_filter(self):
         self.type = None

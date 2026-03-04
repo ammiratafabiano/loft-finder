@@ -61,15 +61,23 @@ class Scraping:
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
             chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
             
             # Use undetected_chromedriver if available
             try:
                 import undetected_chromedriver as uc
-                driver = uc.Chrome(options=chrome_options, driver_executable_path="/usr/bin/chromedriver", browser_executable_path="/usr/bin/chromium")
+                # uc gestisce autonomamente il bypass dell'automazione,
+                # non supporta add_experimental_option
+                uc_options = uc.ChromeOptions()
+                uc_options.binary_location = "/usr/bin/chromium"
+                uc_options.add_argument('--headless=new')
+                uc_options.add_argument('--no-sandbox')
+                uc_options.add_argument('--disable-dev-shm-usage')
+                uc_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+                driver = uc.Chrome(options=uc_options, driver_executable_path="/usr/bin/chromedriver", browser_executable_path="/usr/bin/chromium")
             except ImportError:
+                chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                chrome_options.add_experimental_option('useAutomationExtension', False)
                 driver = webdriver.Chrome(options=chrome_options)
                 
             driver.set_page_load_timeout(30)

@@ -73,7 +73,7 @@ class CasaWatch(Watch):
         for el in filtered_raw_list:
             a_tag = el.find('a', href=True)
             if a_tag is not None:
-                url = 'https://www.' + self.source + a_tag.get('href') if not a_tag.get('href').startswith('http') else a_tag.get('href')
+                url = 'https://' + self.source + a_tag.get('href') if not a_tag.get('href').startswith('http') else a_tag.get('href')
 
                 prize = "0"
                 prize_item = el.find(string=re.compile(r'€'))

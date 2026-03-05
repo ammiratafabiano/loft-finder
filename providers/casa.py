@@ -1,3 +1,4 @@
+import json
 import logging
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
@@ -39,38 +40,103 @@ class CasaWatch(Watch):
 
     def get_ads(self):
         response = scraping.get_page_with_requests(self.url)
-        # Fallback on robust searching for article or div elements representing the property card
-        raw_list = response.find_all(re.compile(r'article|div'), class_=re.compile(r'srp-card|csaSrpcard'))
-        # deduplicate as sometimes nested divs match
-        filtered_raw_list = []
+
+        # --- Tentativo 1: window.__INITIAL_STATE__ JSON (immune a ban/Cloudflare parziali) ---
+        ads = self._ads_from_initial_state(response)
+        if ads is not None:
+            logging.info(f"casa __INITIAL_STATE__: {len(ads)} ads")
+            return ads, True
+
+        # --- Tentativo 2: HTML parsing classico ---
+        raw_list = self._find_cards(response)
+        if raw_list:
+            return self._ads_from_html(raw_list), True
+
+        # --- Tentativo 3: Selenium ---
+        logging.error("scraping - casa, trying with selenium")
+        write_log(self.display_name, response.get_text())
+        response = scraping.get_page_with_selenium(self.url)
+
+        ads = self._ads_from_initial_state(response)
+        if ads is not None:
+            logging.info(f"casa selenium __INITIAL_STATE__: {len(ads)} ads")
+            return ads, True
+
+        raw_list = self._find_cards(response)
+        if raw_list:
+            return self._ads_from_html(raw_list), True
+
+        logging.error("scraping - casa")
+        write_log(self.display_name, response.get_text())
+        return [], False
+
+    @staticmethod
+    def _parse_initial_state(soup):
+        """Estrae il JSON da window.__INITIAL_STATE__ = JSON.parse('...')"""
+        for sc in soup.find_all('script'):
+            text = sc.string or ''
+            if 'window.__INITIAL_STATE__' not in text:
+                continue
+            m = re.search(r'window\.__INITIAL_STATE__\s*=\s*JSON\.parse\("(.+?)"\);', text, re.DOTALL)
+            if m:
+                try:
+                    json_str = m.group(1).encode().decode('unicode_escape')
+                    return json.loads(json_str)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+        return None
+
+    def _ads_from_initial_state(self, soup):
+        """Estrae gli annunci dal JSON __INITIAL_STATE__ di Casa.it. Ritorna None se non trovato."""
+        data = self._parse_initial_state(soup)
+        if data is None:
+            return None
+        search_list = data.get('search', {}).get('list', [])
+        if not search_list:
+            return None
+        ads = []
+        for item in search_list:
+            uri = item.get('uri', '')
+            if not uri:
+                continue
+            url = f"https://{self.source}{uri}" if not uri.startswith('http') else uri
+            features = item.get('features', {})
+            price_data = features.get('price', {})
+            marker = price_data.get('marker', {})
+            prize = marker.get('originalPrice', 0)
+            if not prize:
+                prize_str = price_data.get('value', '0')
+                match = re.findall(r'[0-9]+', str(prize_str).replace('.', ''))
+                prize = int(match[0]) if match else prize_str
+            # Filtro stanze
+            rooms = features.get('rooms')
+            if rooms is not None:
+                try:
+                    rooms = int(rooms)
+                except (ValueError, TypeError):
+                    rooms = None
+            if (self.min_rooms and rooms and rooms < self.min_rooms) or \
+               (self.max_rooms and rooms and rooms > self.max_rooms):
+                continue
+            ads.append(Adv(self.display_name, url, prize))
+        return ads
+
+    @staticmethod
+    def _find_cards(soup):
+        """Trova le card HTML degli annunci e deduplica."""
+        raw_list = soup.find_all(re.compile(r'article|div'), class_=re.compile(r'srp-card|csaSrpcard'))
+        filtered = []
         seen = set()
         for el in raw_list:
-            # find the actual link
             a_tag = el.find('a', href=True)
             if a_tag and a_tag.get('href') not in seen and '/immobili/' in a_tag.get('href'):
-                filtered_raw_list.append(el)
+                filtered.append(el)
                 seen.add(a_tag.get('href'))
+        return filtered
 
-        if not filtered_raw_list:
-            logging.error("scraping - casa, trying with selenium")
-            write_log(self.display_name, response.get_text())
-            response = scraping.get_page_with_selenium(self.url)
-            raw_list = response.find_all(re.compile(r'article|div'), class_=re.compile(r'srp-card|csaSrpcard'))
-            filtered_raw_list = []
-            seen = set()
-            for el in raw_list:
-                a_tag = el.find('a', href=True)
-                if a_tag and a_tag.get('href') not in seen and '/immobili/' in a_tag.get('href'):
-                    filtered_raw_list.append(el)
-                    seen.add(a_tag.get('href'))
-
-            if not filtered_raw_list:
-                logging.error("scraping - casa")
-                write_log(self.display_name, response.get_text())
-                return [], False
-
+    def _ads_from_html(self, raw_list):
         ads = []
-        for el in filtered_raw_list:
+        for el in raw_list:
             a_tag = el.find('a', href=True)
             if a_tag is not None:
                 url = 'https://' + self.source + a_tag.get('href') if not a_tag.get('href').startswith('http') else a_tag.get('href')
@@ -99,7 +165,7 @@ class CasaWatch(Watch):
                     continue
                 new_adv = Adv(self.display_name, url, prize)
                 ads.append(new_adv)
-        return ads, True
+        return ads
 
     def __set_default_filter(self):
         self.type = None

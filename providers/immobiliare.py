@@ -79,7 +79,12 @@ class ImmobiliareWatch(Watch):
         # --- Tentativo 1: __NEXT_DATA__ JSON (immune ai cambi di classi CSS) ---
         results = self._parse_next_data(response)
         if results is not None:
-            return self._ads_from_next_data(results), True
+            ads = self._ads_from_next_data(results)
+            logging.info(f"immobiliare __NEXT_DATA__: {len(results)} results -> {len(ads)} ads")
+            if ads or len(results) == 0:
+                return ads, True
+            # Se results non è vuoto ma ads sì, probabile cambio struttura JSON: prova HTML
+            logging.warning(f"immobiliare __NEXT_DATA__ found {len(results)} results but 0 ads, trying HTML")
 
         # --- Tentativo 2: HTML parsing classico ---
         raw_list = response.find_all('li', class_=re.compile(
@@ -94,7 +99,10 @@ class ImmobiliareWatch(Watch):
 
         results = self._parse_next_data(response)
         if results is not None:
-            return self._ads_from_next_data(results), True
+            ads = self._ads_from_next_data(results)
+            logging.info(f"immobiliare selenium __NEXT_DATA__: {len(results)} results -> {len(ads)} ads")
+            if ads or len(results) == 0:
+                return ads, True
 
         raw_list = response.find_all('li', class_=re.compile(
             r'nd-list__item|in-realEstateResults__item|in-searchList__item'))
@@ -111,9 +119,26 @@ class ImmobiliareWatch(Watch):
             re_data = item.get('realEstate', {})
             if not re_data:
                 continue
-            # URL: può stare in properties[0].url o direttamente in realEstate.url
+            # URL: prova più path nel JSON (la struttura cambia spesso)
+            url = ''
+            # 1. properties[0].url (struttura vecchia)
             props = re_data.get('properties', [])
-            url = props[0].get('url', '') if props else re_data.get('url', '')
+            if props and isinstance(props[0], dict):
+                url = props[0].get('url', '')
+            # 2. realEstate.url diretto
+            if not url:
+                url = re_data.get('url', '')
+            # 3. seo.url o seo.anchor (struttura Next.js recente)
+            if not url:
+                seo = re_data.get('seo', {})
+                if isinstance(seo, dict):
+                    url = seo.get('url', '') or seo.get('anchor', '')
+            # 4. permalink / link
+            if not url:
+                url = re_data.get('permalink', '') or re_data.get('link', '')
+            # 5. Costruisci dall'id come fallback
+            if not url and re_data.get('id'):
+                url = f"https://www.immobiliare.it/annunci/{re_data['id']}/"
             if not url:
                 continue
             if not url.startswith('http'):

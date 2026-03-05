@@ -23,6 +23,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Silenzia i log verbosi di Telegram, httpx e httpcore (mostra solo WARNING+)
+for _noisy in ('telegram', 'telegram.ext', 'httpx', 'httpcore', 'hpack', 'apscheduler'):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 
 async def search_daemon(context: telegram.ext.CallbackContext = None):
     logging.info("search deamon started")

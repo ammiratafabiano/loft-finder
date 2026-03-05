@@ -25,7 +25,7 @@ class Scraping:
                 "Accept-Encoding": "gzip, deflate, br",
                 "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
                 "Cache-Control": "max-age=0",
-                "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24", "Google Chrome";v="131"',
                 "Sec-Ch-Ua-Mobile": "?0",
                 "Sec-Ch-Ua-Platform": '"Windows"',
                 "Sec-Fetch-Dest": "document",
@@ -33,7 +33,7 @@ class Scraping:
                 "Sec-Fetch-Site": "none",
                 "Sec-Fetch-User": "?1",
                 "Upgrade-Insecure-Requests": "1",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             },
             {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -46,13 +46,13 @@ class Scraping:
                 "Sec-Fetch-Site": "none",
                 "Sec-Fetch-User": "?1",
                 "Upgrade-Insecure-Requests": "1",
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             },
             {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Encoding": "gzip, deflate, br",
                 "Accept-Language": "it-IT,it;q=0.9",
-                "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+                "Sec-Ch-Ua": '"Chromium";v="131", "Google Chrome";v="131", "Not_A Brand";v="24"',
                 "Sec-Ch-Ua-Mobile": "?0",
                 "Sec-Ch-Ua-Platform": '"macOS"',
                 "Sec-Fetch-Dest": "document",
@@ -60,7 +60,7 @@ class Scraping:
                 "Sec-Fetch-Site": "same-origin",
                 "Sec-Fetch-User": "?1",
                 "Upgrade-Insecure-Requests": "1",
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             },
             {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -70,7 +70,7 @@ class Scraping:
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "none",
                 "Upgrade-Insecure-Requests": "1",
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0"
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
             }
         ]
         chosen_headers = random.choice(headers_pool)
@@ -106,7 +106,7 @@ class Scraping:
         driver = None
         try:
             chrome_options = Options()
-            chrome_options.binary_location = "/usr/bin/chromium"
+            chrome_options.binary_location = "/usr/bin/google-chrome"
             chrome_options.add_argument('--headless=new')
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
@@ -114,23 +114,23 @@ class Scraping:
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--lang=it-IT')
             ua = random.choice([
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             ])
             
             # Use undetected_chromedriver if available
             try:
                 import undetected_chromedriver as uc
                 uc_options = uc.ChromeOptions()
-                uc_options.binary_location = "/usr/bin/chromium"
+                uc_options.binary_location = "/usr/bin/google-chrome"
                 uc_options.add_argument('--headless=new')
                 uc_options.add_argument('--no-sandbox')
                 uc_options.add_argument('--disable-dev-shm-usage')
                 uc_options.add_argument('--window-size=1920,1080')
                 uc_options.add_argument('--lang=it-IT')
                 uc_options.add_argument(f"user-agent={ua}")
-                driver = uc.Chrome(options=uc_options, driver_executable_path="/usr/bin/chromedriver", browser_executable_path="/usr/bin/chromium")
+                driver = uc.Chrome(options=uc_options, driver_executable_path="/usr/bin/chromedriver", browser_executable_path="/usr/bin/google-chrome")
             except ImportError:
                 chrome_options.add_argument(f"user-agent={ua}")
                 chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])

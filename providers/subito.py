@@ -1,3 +1,4 @@
+import json
 import logging
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
@@ -41,16 +42,85 @@ class SubitoWatch(Watch):
 
 	def get_ads(self):
 		response = scraping.get_page_with_requests(self.url)
+
+		# --- Tentativo 1: __NEXT_DATA__ JSON (più affidabile, meno rilevabile) ---
+		ads = self._ads_from_next_data(response)
+		if ads is not None:
+			logging.info(f"subito __NEXT_DATA__: {len(ads)} ads")
+			return ads, True
+
+		# --- Tentativo 2: HTML parsing classico ---
 		raw_list = response.find_all('div', class_='items__item')
-		if not raw_list:
-			logging.error("scraping - subito, trying with selenium")
-			write_log(self.display_name, response.get_text())
-			response = scraping.get_page_with_selenium(self.url)
-			raw_list = response.find_all('div', class_='items__item')
-			if not raw_list:
-				logging.error("scraping - subito")
-				write_log(self.display_name, response.get_text())
-				return [], False
+		if raw_list:
+			return self._ads_from_html(raw_list), True
+
+		# --- Tentativo 3: Selenium ---
+		logging.error("scraping - subito, trying with selenium")
+		write_log(self.display_name, response.get_text())
+		response = scraping.get_page_with_selenium(self.url)
+
+		ads = self._ads_from_next_data(response)
+		if ads is not None:
+			logging.info(f"subito selenium __NEXT_DATA__: {len(ads)} ads")
+			return ads, True
+
+		raw_list = response.find_all('div', class_='items__item')
+		if raw_list:
+			return self._ads_from_html(raw_list), True
+
+		logging.error("scraping - subito")
+		write_log(self.display_name, response.get_text())
+		return [], False
+
+	@staticmethod
+	def _parse_next_data(soup):
+		"""Estrae items dal JSON __NEXT_DATA__ di Subito.it"""
+		script_tag = soup.find('script', id='__NEXT_DATA__', type='application/json')
+		if not script_tag:
+			return None
+		try:
+			data = json.loads(script_tag.string)
+		except (json.JSONDecodeError, TypeError):
+			return None
+		items = data.get('props', {}).get('pageProps', {}).get('initialState', {}).get('items', {})
+		# Usa originalList (tutti gli annunci non-sponsorizzati)
+		original = items.get('originalList', [])
+		if original:
+			return original
+		# Fallback su list (contiene wrapper {before, item, after})
+		item_list = items.get('list', [])
+		if item_list and isinstance(item_list[0], dict) and 'item' in item_list[0]:
+			return [entry.get('item', entry) for entry in item_list if entry.get('item')]
+		return item_list or None
+
+	def _ads_from_next_data(self, soup):
+		"""Estrae annunci dal JSON. Ritorna None se __NEXT_DATA__ non trovato."""
+		items = self._parse_next_data(soup)
+		if items is None:
+			return None
+		ads = []
+		for item in items:
+			urls = item.get('urls', {})
+			url = urls.get('default', '') or urls.get('mobile', '')
+			if not url:
+				continue
+			# Prezzo
+			features = item.get('features', {})
+			price_feat = features.get('/price', {})
+			price_vals = price_feat.get('values', [])
+			if price_vals:
+				prize = price_vals[0].get('key', '0')
+				try:
+					prize = int(prize)
+				except (ValueError, TypeError):
+					match = re.findall(r'[0-9]+', str(prize).replace('.', ''))
+					prize = int(match[0]) if match else prize
+			else:
+				prize = 'Trattativa riservata'
+			ads.append(Adv(self.display_name, url, prize))
+		return ads
+
+	def _ads_from_html(self, raw_list):
 		ads = []
 		for el in raw_list:
 			if el.a is not None:
@@ -66,7 +136,7 @@ class SubitoWatch(Watch):
 					prize = int(match[0]) if match else prize
 				new_adv = Adv(self.display_name, url, prize)
 				ads.append(new_adv)
-		return ads, True
+		return ads
 
 	def __set_default_filter(self):
 		self.type = None

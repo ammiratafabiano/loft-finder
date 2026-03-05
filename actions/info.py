@@ -113,6 +113,8 @@ async def restart_watch(update: Update, context: CallbackContext) -> int:
                 for i, watch_name in enumerate(WatchType):
                     if watch_name.value == watch.display_name and i == index:
                         watch.status = True
+                        watch.attempts = 0
+                        watch.remaining_attempts = 0
         storage.save()
         return await report(update, context)
     else:

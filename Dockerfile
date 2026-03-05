@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk1.0-0t64 \
     libatk-bridge2.0-0t64 \
-    libcups2 \
+    libcups2t64 \
     libdrm2 \
     libxkbcommon0 \
     libxcomposite1 \

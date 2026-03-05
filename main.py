@@ -23,6 +23,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Deduplicazione alert per provider: source -> timestamp ultimo alert
+_alert_sent_at: dict = {}
+ALERT_COOLDOWN_SECONDS = 4 * 3600  # 4 ore di cooldown tra alert identici
+
 # Silenzia i log verbosi di Telegram, httpx e httpcore (mostra solo WARNING+)
 for _noisy in ('telegram', 'telegram.ext', 'httpx', 'httpcore', 'hpack', 'apscheduler'):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
@@ -140,6 +144,12 @@ async def send_adv(user: User, adv: Adv, watch: Watch):
 
 
 async def send_alert(watch: Watch):
+    now = time.time()
+    last = _alert_sent_at.get(watch.source, 0)
+    if now - last < ALERT_COOLDOWN_SECONDS:
+        logging.info(f"Alert per {watch.display_name} già inviato {int((now - last) / 60)} min fa, skipping")
+        return
+    _alert_sent_at[watch.source] = now
     text = f'⚠️⚠️⚠️\nProblema di servizio per {watch.display_name}. Clicca /info per maggiori dettagli.'
     try:
         await telegram.Bot(token=BOT_TOKEN).send_message(ADMIN_ID, text)

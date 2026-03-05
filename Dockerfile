@@ -4,7 +4,7 @@ FROM python:3.9-slim
 ARG TARGETARCH
 
 # Dipendenze di build e runtime comuni
-# Nota: su Debian 13 (Trixie) alcune lib sono rinominate con suffisso t64
+# Su Debian 13 (Trixie) alcune lib sono rinominate con suffisso t64 su tutte le arch
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     libffi-dev \
     libnss3 \
+    libatk1.0-0t64 \
+    libatk-bridge2.0-0t64 \
     libcups2 \
     libdrm2 \
     libxkbcommon0 \
@@ -23,12 +25,10 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libpango-1.0-0 \
     libcairo2 \
+    libasound2t64 \
     libxshmfence1 \
     fonts-liberation \
     xdg-utils \
-    && apt-get install -y libatk1.0-0t64 || apt-get install -y libatk1.0-0 \
-    && apt-get install -y libatk-bridge2.0-0t64 || apt-get install -y libatk-bridge2.0-0 \
-    && apt-get install -y libasound2t64 || apt-get install -y libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Installa Chrome/Chromedriver in base all'architettura:

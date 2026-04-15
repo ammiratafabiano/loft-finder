@@ -90,7 +90,7 @@ async def search_daemon(context: telegram.ext.CallbackContext = None):
                                 await send_alert(watch)
                                 watch.attempts = getattr(watch, 'base_attempts', 1)
                             else:
-                                watch.attempts *= 2
+                                watch.attempts = min(watch.attempts * 2, 48)
                             watch.remaining_attempts = watch.attempts
                         if online_user:
                             watch.status = status
@@ -99,9 +99,6 @@ async def search_daemon(context: telegram.ext.CallbackContext = None):
                             per_watch_delay = random.randint(60, 120)
                             logging.info(f"sleep for {per_watch_delay} seconds")
                             await asyncio.sleep(per_watch_delay)
-                        per_watch_delay = random.randint(60, 120)
-                        logging.info(f"sleep for {per_watch_delay} seconds")
-                        await asyncio.sleep(per_watch_delay)
                         if not online_user:
                             break
                     else:

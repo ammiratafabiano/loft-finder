@@ -17,6 +17,17 @@ except ImportError:
     HAS_CLOUDSCRAPER = False
 
 class Scraping:
+    _cloudscraper_session = None
+
+    @classmethod
+    def _get_scraper(cls):
+        if HAS_CLOUDSCRAPER and cls._cloudscraper_session is None:
+            cls._cloudscraper_session = cloudscraper.create_scraper(
+                browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False},
+                delay=random.uniform(2, 5)
+            )
+        return cls._cloudscraper_session
+
     @staticmethod
     def get_page_with_requests(url):
         headers_pool = [
@@ -77,10 +88,7 @@ class Scraping:
         response = ""
         try:
             if HAS_CLOUDSCRAPER:
-                scraper = cloudscraper.create_scraper(
-                    browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False},
-                    delay=random.uniform(2, 5)
-                )
+                scraper = Scraping._get_scraper()
                 resp = scraper.get(url, headers=chosen_headers, timeout=30)
                 response = resp.text
             else:

@@ -96,10 +96,10 @@ async def search_daemon(context: telegram.ext.CallbackContext = None):
                             watch.status = status
                             user.last_update = get_time()
                             storage.save()
-                            per_watch_delay = random.randint(7, 13)
+                            per_watch_delay = random.randint(60, 120)
                             logging.info(f"sleep for {per_watch_delay} seconds")
                             await asyncio.sleep(per_watch_delay)
-                        per_watch_delay = random.randint(7, 13)
+                        per_watch_delay = random.randint(60, 120)
                         logging.info(f"sleep for {per_watch_delay} seconds")
                         await asyncio.sleep(per_watch_delay)
                         if not online_user:
